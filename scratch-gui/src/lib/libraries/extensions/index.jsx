@@ -88,6 +88,26 @@ var twExtensionList = [];
 
 for (var ext of TWExtensions.extensions) {
 	if (!(ext.id.toLowerCase() == "gamepad")) {
+		var extraText = "";
+		if (ext.by) {
+			var tmpArray = [].concat(ext.by);
+			extraText += "By: ";
+			for (var user of tmpArray) {
+				console.log(user);
+				extraText += user.name+" ";
+			}
+		}
+		var extraText2 = "";
+		if (ext.original) {
+			var tmpArray = [].concat(ext.original);
+			extraText2 += "Original: ";
+			for (var user of tmpArray) {
+				console.log(user);
+				extraText2 += user.name+" ";
+			}
+			
+		}
+		var extDescription = ext.description + " " + extraText + "" + extraText2;
 		twExtensionList.push({
 			name: ext.name,
 			extensionId: ext.id,
@@ -96,10 +116,10 @@ for (var ext of TWExtensions.extensions) {
 			description: (
 				<div>
 					<span>
-					{ext.description}
+					{extDescription}
 					</span>
 					<br/>
-					<b>NOTE: This extension is not by gvbvdxx, rather instead by TurboWarp.</b>
+					<span>From <a href="https://extensions.turbowarp.org/" target="_blank">TurboWarp Extensions</a>.</span>
 				</div>
 			),
 			featured: true,
