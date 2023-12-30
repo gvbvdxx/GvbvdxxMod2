@@ -41,7 +41,8 @@ const builtinExtensions = {
 	extra: () => require('../extensions/scratch3_extra'),
 	userdata: () => require('../extensions/scratch3_user_data'),
 	roku: () => require('../extensions/scratch3_roku'),
-	html5: () => require('../extensions/html5_elements')
+	html5: () => require('../extensions/html5_elements'),
+	nesemulator: () => require('../extensions/nesemulator')
 };
 
 //INIT Tw extensions

@@ -17,13 +17,24 @@ class roku {
 		this.rokuAppsXML = null;
 		this.updateFinishedCount = 0;
     }
+	removeWSListeners (ws) {
+		function emptyFunction() {}
+		ws.onclose = emptyFunction;
+		ws.onopen = emptyFunction;
+		ws.onerror = emptyFunction;
+		ws.onmessage = emptyFunction;
+	}
 	connectHelper () {
+		if (this.ws) {
+			this.removeWSListeners(this.ws);
+		}
 		var ext = this;
 		this.ws = new WebSocket(wsURI);
 		this.ws.onclose = function () {
 			//try to reconnect again.
 			ext.connected = false;
 			ext.connectHelper();
+			ext.stopAllWaits();
 		};
 		this.ws.onerror = function () {
 			//try to reconnect again.
@@ -138,6 +149,11 @@ class roku {
 						}
 		];
 	}
+	setTimeoutAsync (resolve) {
+		return new Promise((resolve) => {
+			setTimeout(resolve,ms);
+		});
+	}
     getInfo () {
         return {
             id: 'roku',
@@ -160,6 +176,28 @@ class roku {
                     opcode: 'pressButton',
                     blockType: BlockType.COMMAND,
                     text: 'Press button [key] on remote',
+                    arguments: {
+						key: {
+							acceptReporters: false,
+							menu: 'remoteButtons'
+						}
+                    }
+                },
+				{
+                    opcode: 'buttonDown',
+                    blockType: BlockType.COMMAND,
+                    text: 'Hold [key] on remote',
+                    arguments: {
+						key: {
+							acceptReporters: false,
+							menu: 'remoteButtons'
+						}
+                    }
+                },
+				{
+                    opcode: 'buttonUp',
+                    blockType: BlockType.COMMAND,
+                    text: 'Release [key] on remote',
                     arguments: {
 						key: {
 							acceptReporters: false,
@@ -227,8 +265,8 @@ class roku {
                     arguments: {
 						appNumber: {
 							acceptReporters: true,
-							type:ArgumentType.NUMBER,
-							defaultValue:1
+							type:ArgumentType.STRING, //Figured it can be a string as well (for tv inputs!)
+							defaultValue:""
 						}
                     }
                 }
@@ -319,6 +357,15 @@ class roku {
             }
         };
     }
+	stopAllWaits () {
+		for (var id of Object.keys(this.waitends)) {
+			try{
+				this.waitends[id]();
+			}catch(e){}
+			this.waitid -= 1;
+		}
+		this.waitends = {};
+	}
 	launchAppById (args) {
 		try{
 			if (this.connected) {
@@ -432,11 +479,38 @@ class roku {
 				this.ws.send(JSON.stringify({
 					funct:"pressKey",
 					key:args.key
-				}))
+				}));
+				return setTimeoutAsync(50); //Half of 0.1 seconds
 			}
 		} catch(e) {
 		}
     }
+	
+	buttonDown (args) {
+		try {
+			if (this.connected) {
+				this.ws.send(JSON.stringify({
+					funct:"buttonDown",
+					key:args.key
+				}));
+				return setTimeoutAsync(50); //Half of 0.1 seconds
+			}
+		} catch(e) {
+		}
+    }
+	buttonUp (args) {
+		try {
+			if (this.connected) {
+				this.ws.send(JSON.stringify({
+					funct:"buttonUp",
+					key:args.key
+				}));
+				return setTimeoutAsync(50); //Half of 0.1 seconds
+			}
+		} catch(e) {
+		}
+    }
+	
     connectToRoku (args) {
 		try {
 			if (this.connected) {

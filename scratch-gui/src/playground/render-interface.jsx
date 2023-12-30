@@ -45,6 +45,24 @@ import runAddons from '../addons/entry';
 
 import styles from './interface.css';
 
+//Prop type error cleaner.
+var oldConsolError = console.error;
+console.error = function (...messages) {
+	var newMessages = [];
+	for (var msg of messages) {
+		if (msg.indexOf("Warning: Failed prop type:") > -1) {
+			//ignore the message
+		} else {
+			newMessages.push(msg);
+		}
+	}
+	if (newMessages.length < 1) {
+		//dont post the console message.
+	} else {
+		oldConsolError.apply(console,newMessages);
+	}
+}
+
 if (window.parent !== window) {
     // eslint-disable-next-line no-alert
     alert('Using embed');

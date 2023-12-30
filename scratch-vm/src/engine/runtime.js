@@ -284,11 +284,7 @@ class Runtime extends EventEmitter {
          */
         this._primitives = {};
 
-        /**
-         * Map to look up all block information by extended opcode.
-         * @type {Array.<CategoryInfo>}
-         * @private
-         */
+
         this._blockInfo = [];
 
         /**
@@ -337,11 +333,7 @@ class Runtime extends EventEmitter {
          */
         this._refreshTargets = false;
 
-        /**
-         * Map to look up all monitor block information by opcode.
-         * @type {object}
-         * @private
-         */
+
         this.monitorBlockInfo = {};
 
         /**
@@ -494,9 +486,90 @@ class Runtime extends EventEmitter {
 		 
 		 
 		 this.extensionButtons = new Map();
+		 
+		 
+		 this.startHats = this.startHats2;
     }
 	
-	
+	startHats2 (a, b, c) {
+		var requestedHatOpcode = a;
+		var optMatchFields = b;
+		var optTarget = c;
+        if (!this._hats.hasOwnProperty(requestedHatOpcode)) {
+            // No known hat with this opcode.
+            return;
+        }
+        const instance = this;
+        const newThreads = [];
+        // Look up metadata for the relevant hat.
+        const hatMeta = instance._hats[requestedHatOpcode];
+        for (const opts in optMatchFields) {
+            if (!optMatchFields.hasOwnProperty(opts)) continue;
+            optMatchFields[opts] = optMatchFields[opts].toUpperCase();
+        }
+        // tw: By assuming that all new threads will not interfere with eachother, we can optimize the loops
+        // inside the allScriptsByOpcodeDo callback below.
+        const startingThreadListLength = this.threads.length;
+        // Consider all scripts, looking for hats with opcode `requestedHatOpcode`.
+        this.allScriptsByOpcodeDo(requestedHatOpcode, (script, target) => {
+            const {
+                blockId: topBlockId,
+                fieldsOfInputs: hatFields
+            } = script;
+            // Match any requested fields.
+            // For example: ensures that broadcasts match.
+            // This needs to happen before the block is evaluated
+            // (i.e., before the predicate can be run) because "broadcast and wait"
+            // needs to have a precise collection of started threads.
+            for (const matchField in optMatchFields) {
+                if (hatFields[matchField].value !== optMatchFields[matchField]) {
+                    // Field mismatch.
+                    return;
+                }
+            }
+            if (hatMeta.restartExistingThreads) {
+                // If `restartExistingThreads` is true, we should stop
+                // any existing threads starting with the top block.
+                const existingThread = this.threadMap.get(Thread.getIdFromTargetAndBlock(target, topBlockId));
+                if (existingThread) {
+                    newThreads.push(this._restartThread(existingThread));
+                    return;
+                }
+            } else {
+                // If `restartExistingThreads` is false, we should
+                // give up if any threads with the top block are running.
+                for (let j = 0; j < startingThreadListLength; j++) {
+                    if (this.threads[j].target === target &&
+                        this.threads[j].topBlock === topBlockId &&
+                        // stack click threads and hat threads can coexist
+                        !this.threads[j].stackClick &&
+                        this.threads[j].status !== Thread.STATUS_DONE) {
+                        // Some thread is already running.
+                        return;
+                    }
+                }
+            }
+            // Start the thread with this top block.
+            newThreads.push(this._pushThread(topBlockId, target));
+        }, optTarget);
+        // For compatibility with Scratch 2, edge triggered hats need to be processed before
+        // threads are stepped. See ScratchRuntime.as for original implementation
+        newThreads.forEach(thread => {
+            if (thread.isCompiled) {
+                if (thread.executableHat) {
+                    // It is quite likely that we are currently executing a block, so make sure
+                    // that we leave the compiler's state intact at the end.
+                    compilerExecute.saveGlobalState();
+                    compilerExecute(thread);
+                    compilerExecute.restoreGlobalState();
+                }
+            } else {
+                execute(this.sequencer, thread);
+                thread.goToNextBlock();
+            }
+        });
+        return newThreads;
+    }
 	
 
     /**
@@ -909,12 +982,7 @@ class Runtime extends EventEmitter {
             }
         });
     }
-
-    /**
-     * Register default block packages with this runtime.
-     * @todo Prefix opcodes with package name.
-     * @private
-     */
+	
     _registerBlockPackages () {
         for (const packageName in defaultBlockPackages) {
             if (defaultBlockPackages.hasOwnProperty(packageName)) {
@@ -956,14 +1024,7 @@ class Runtime extends EventEmitter {
     getMonitorState () {
         return this._monitorState;
     }
-
-    /**
-     * Generate an extension-specific menu ID.
-     * @param {string} menuName - the name of the menu.
-     * @param {string} extensionId - the ID of the extension hosting the menu.
-     * @returns {string} - the constructed ID.
-     * @private
-     */
+	
     _makeExtensionMenuId (menuName, extensionId) {
         return `${extensionId}_menu_${xmlEscape(menuName)}`;
     }
@@ -980,12 +1041,7 @@ class Runtime extends EventEmitter {
             context.targetType = (target.isStage ? TargetType.STAGE : TargetType.SPRITE);
         }
     }
-
-    /**
-     * Register the primitives provided by an extension.
-     * @param {ExtensionMetadata} extensionInfo - information about the extension (id, blocks, etc.)
-     * @private
-     */
+	
     _registerExtensionPrimitives (extensionInfo) {
         const categoryInfo = {
             id: extensionInfo.id,
@@ -1023,12 +1079,7 @@ class Runtime extends EventEmitter {
 
         this.emit(Runtime.EXTENSION_ADDED, categoryInfo);
     }
-
-    /**
-     * Reregister the primitives for an extension
-     * @param  {ExtensionMetadata} extensionInfo - new info (results of running getInfo) for an extension
-     * @private
-     */
+	
     _refreshExtensionPrimitives (extensionInfo) {
         const categoryInfo = this._blockInfo.find(info => info.id === extensionInfo.id);
         if (categoryInfo) {
@@ -1038,14 +1089,7 @@ class Runtime extends EventEmitter {
             this.emit(Runtime.BLOCKSINFO_UPDATE, categoryInfo);
         }
     }
-
-    /**
-     * Read extension information, convert menus, blocks and custom field types
-     * and store the results in the provided category object.
-     * @param {CategoryInfo} categoryInfo - the category to be filled
-     * @param {ExtensionMetadata} extensionInfo - the extension metadata to read
-     * @private
-     */
+	
     _fillExtensionCategory (categoryInfo, extensionInfo) {
         categoryInfo.blocks = [];
         categoryInfo.customFieldTypes = {};
@@ -1122,13 +1166,7 @@ class Runtime extends EventEmitter {
         }
     }
 
-    /**
-     * Convert the given extension menu items into the scratch-blocks style of list of pairs.
-     * If the menu is dynamic (e.g. the passed in argument is a function), return the input unmodified.
-     * @param {object} menuItems - an array of menu items or a function to retrieve such an array
-     * @returns {object} - an array of 2 element arrays or the original input function
-     * @private
-     */
+
     _convertMenuItems (menuItems) {
         if (typeof menuItems !== 'function') {
             const extensionMessageContext = this.makeMessageContextForTarget();
@@ -1146,17 +1184,7 @@ class Runtime extends EventEmitter {
         }
         return menuItems;
     }
-
-    /**
-     * Build the scratch-blocks JSON for a menu. Note that scratch-blocks treats menus as a special kind of block.
-     * @param {string} menuName - the name of the menu
-     * @param {object} menuInfo - a description of this menu and its items
-     * @property {*} items - an array of menu items or a function to retrieve such an array
-     * @property {boolean} [acceptReporters] - if true, allow dropping reporters onto this menu
-     * @param {CategoryInfo} categoryInfo - the category for this block
-     * @returns {object} - a JSON-esque object ready for scratch-blocks' consumption
-     * @private
-     */
+	
     _buildMenuForScratchBlocks (menuName, menuInfo, categoryInfo) {
         const menuId = this._makeExtensionMenuId(menuName, categoryInfo.id);
         const menuItems = this._convertMenuItems(menuInfo.items);
@@ -1236,13 +1264,7 @@ class Runtime extends EventEmitter {
         };
     }
 
-    /**
-     * Convert ExtensionBlockMetadata into data ready for scratch-blocks.
-     * @param {ExtensionBlockMetadata} blockInfo - the block info to convert
-     * @param {CategoryInfo} categoryInfo - the category for this block
-     * @returns {ConvertedBlockInfo} - the converted & original block information
-     * @private
-     */
+
     _convertForScratchBlocks (blockInfo, categoryInfo) {
         if (blockInfo === '---') {
             return this._convertSeparatorForScratchBlocks(blockInfo);
@@ -1255,13 +1277,7 @@ class Runtime extends EventEmitter {
         return this._convertBlockForScratchBlocks(blockInfo, categoryInfo);
     }
 
-    /**
-     * Convert ExtensionBlockMetadata into scratch-blocks JSON & XML, and generate a proxy function.
-     * @param {ExtensionBlockMetadata} blockInfo - the block to convert
-     * @param {CategoryInfo} categoryInfo - the category for this block
-     * @returns {ConvertedBlockInfo} - the converted & original block information
-     * @private
-     */
+
     _convertBlockForScratchBlocks (blockInfo, categoryInfo) {
         const extendedOpcode = `${categoryInfo.id}_${blockInfo.opcode}`;
 
@@ -1406,13 +1422,7 @@ class Runtime extends EventEmitter {
         };
     }
 
-    /**
-     * Generate a separator between blocks categories or sub-categories.
-     * @param {ExtensionBlockMetadata} blockInfo - the block to convert
-     * @param {CategoryInfo} categoryInfo - the category for this block
-     * @returns {ConvertedBlockInfo} - the converted & original block information
-     * @private
-     */
+
     _convertSeparatorForScratchBlocks (blockInfo) {
         return {
             info: blockInfo,
@@ -1420,14 +1430,7 @@ class Runtime extends EventEmitter {
         };
     }
 
-    /**
-     * Convert a button for scratch-blocks. A button has no opcode but specifies a callback name in the `func` field.
-     * @param {ExtensionBlockMetadata} buttonInfo - the button to convert
-     * @property {string} func - the callback name
-     * @param {CategoryInfo} categoryInfo - the category for this button
-     * @returns {ConvertedBlockInfo} - the converted & original button information
-     * @private
-     */
+
     _convertForScratchBlocks (blockInfo, categoryInfo) {
         if (blockInfo === '---') {
             return this._convertSeparatorForScratchBlocks(blockInfo);
@@ -1490,12 +1493,7 @@ class Runtime extends EventEmitter {
         callback();
     }
 
-    /**
-     * Helper for _convertPlaceholdes which handles inline images which are a specialized case of block "arguments".
-     * @param {object} argInfo Metadata about the inline image as specified by the extension
-     * @return {object} JSON blob for a scratch-blocks image field.
-     * @private
-     */
+
     _constructInlineImageJson (argInfo) {
         if (!argInfo.dataURI) {
             log.warn('Missing data URI in extension block with argument type IMAGE');
@@ -1513,15 +1511,7 @@ class Runtime extends EventEmitter {
         };
     }
 
-    /**
-     * Helper for _convertForScratchBlocks which handles linearization of argument placeholders. Called as a callback
-     * from string#replace. In addition to the return value the JSON and XML items in the context will be filled.
-     * @param {object} context - information shared with _convertForScratchBlocks about the block, etc.
-     * @param {string} match - the overall string matched by the placeholder regex, including brackets: '[FOO]'.
-     * @param {string} placeholder - the name of the placeholder being matched: 'FOO'.
-     * @return {string} scratch-blocks placeholder for the argument: '%1'.
-     * @private
-     */
+
     _convertPlaceholders (context, match, placeholder) {
         // Sanitize the placeholder to ensure valid XML
         placeholder = placeholder.replace(/[<"&]/, '_');
@@ -2025,91 +2015,6 @@ class Runtime extends EventEmitter {
                 f(scripts[j], target);
             }
         }
-    }
-
-    /**
-     * Start all relevant hats.
-     * @param {!string} requestedHatOpcode Opcode of hats to start.
-     * @param {object=} optMatchFields Optionally, fields to match on the hat.
-     * @param {Target=} optTarget Optionally, a target to restrict to.
-     * @return {Array.<Thread>} List of threads started by this function.
-     */
-    startHats (requestedHatOpcode,
-        optMatchFields, optTarget) {
-        if (!this._hats.hasOwnProperty(requestedHatOpcode)) {
-            // No known hat with this opcode.
-            return;
-        }
-        const instance = this;
-        const newThreads = [];
-        // Look up metadata for the relevant hat.
-        const hatMeta = instance._hats[requestedHatOpcode];
-        for (const opts in optMatchFields) {
-            if (!optMatchFields.hasOwnProperty(opts)) continue;
-            optMatchFields[opts] = optMatchFields[opts].toUpperCase();
-        }
-        // tw: By assuming that all new threads will not interfere with eachother, we can optimize the loops
-        // inside the allScriptsByOpcodeDo callback below.
-        const startingThreadListLength = this.threads.length;
-        // Consider all scripts, looking for hats with opcode `requestedHatOpcode`.
-        this.allScriptsByOpcodeDo(requestedHatOpcode, (script, target) => {
-            const {
-                blockId: topBlockId,
-                fieldsOfInputs: hatFields
-            } = script;
-            // Match any requested fields.
-            // For example: ensures that broadcasts match.
-            // This needs to happen before the block is evaluated
-            // (i.e., before the predicate can be run) because "broadcast and wait"
-            // needs to have a precise collection of started threads.
-            for (const matchField in optMatchFields) {
-                if (hatFields[matchField].value !== optMatchFields[matchField]) {
-                    // Field mismatch.
-                    return;
-                }
-            }
-            if (hatMeta.restartExistingThreads) {
-                // If `restartExistingThreads` is true, we should stop
-                // any existing threads starting with the top block.
-                const existingThread = this.threadMap.get(Thread.getIdFromTargetAndBlock(target, topBlockId));
-                if (existingThread) {
-                    newThreads.push(this._restartThread(existingThread));
-                    return;
-                }
-            } else {
-                // If `restartExistingThreads` is false, we should
-                // give up if any threads with the top block are running.
-                for (let j = 0; j < startingThreadListLength; j++) {
-                    if (this.threads[j].target === target &&
-                        this.threads[j].topBlock === topBlockId &&
-                        // stack click threads and hat threads can coexist
-                        !this.threads[j].stackClick &&
-                        this.threads[j].status !== Thread.STATUS_DONE) {
-                        // Some thread is already running.
-                        return;
-                    }
-                }
-            }
-            // Start the thread with this top block.
-            newThreads.push(this._pushThread(topBlockId, target));
-        }, optTarget);
-        // For compatibility with Scratch 2, edge triggered hats need to be processed before
-        // threads are stepped. See ScratchRuntime.as for original implementation
-        newThreads.forEach(thread => {
-            if (thread.isCompiled) {
-                if (thread.executableHat) {
-                    // It is quite likely that we are currently executing a block, so make sure
-                    // that we leave the compiler's state intact at the end.
-                    compilerExecute.saveGlobalState();
-                    compilerExecute(thread);
-                    compilerExecute.restoreGlobalState();
-                }
-            } else {
-                execute(this.sequencer, thread);
-                thread.goToNextBlock();
-            }
-        });
-        return newThreads;
     }
 
 

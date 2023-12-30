@@ -83,6 +83,17 @@ class audioctx {
 		}
 		this.playnoteosc = this.playWaveNoteFunct(noteNum,100,0.3);
 	}
+	capAudioOutput (out) {
+		var a = out;
+		if (a > 1) {
+			a = 1;
+		}
+		if (a < -1) {
+			a = -1;
+		}
+		return a;
+	}
+	
 	playWave (args) {
 		try {
 			function mtof(m) {
@@ -97,15 +108,15 @@ class audioctx {
 
 			real[0] = 0;
 			imag[0] = 0;
-			real[1] = Number(Cast.toString(args.sharp));
-			imag[1] = 0;
+			real[1] = this.capAudioOutput(Number(Cast.toString(args.sharp)));
+			imag[1] = this.capAudioOutput(Number(Cast.toString(args.sharp)));
 			osc.frequency.value = (Number(Cast.toString(args.frequency)));
 
-			var wave = audiocxtobj.createPeriodicWave(real, imag, {disableNormalization: true});
+			var wave = audiocxtobj.createPeriodicWave(real, imag, {disableNormalization: false});
 
 			osc.setPeriodicWave(wave);
 
-			osc.connect(audiocxtobj.destination);
+			osc.connect(this.runtime.audioEngine.getInputNode());
 
 			osc.start(audiocxtobj.currentTime);
 			osc.stop(Number(Cast.toString(args.sec))+audiocxtobj.currentTime);
@@ -128,15 +139,15 @@ class audioctx {
 
 			real[0] = 0;
 			imag[0] = 0;
-			real[1] = sharp;
-			imag[1] = 0;
+			real[1] = this.capAudioOutput(sharp);
+			imag[1] = this.capAudioOutput(sharp);
 			osc.frequency.value = mtof(note);
 
-			var wave = audiocxtobj.createPeriodicWave(real, imag, {disableNormalization: true});
+			var wave = audiocxtobj.createPeriodicWave(real, imag, {disableNormalization: false});
 
 			osc.setPeriodicWave(wave);
 
-			osc.connect(audiocxtobj.destination);
+			osc.connect(this.runtime.audioEngine.getInputNode());
 
 			osc.start(audiocxtobj.currentTime);
 			osc.stop(sec+audiocxtobj.currentTime);

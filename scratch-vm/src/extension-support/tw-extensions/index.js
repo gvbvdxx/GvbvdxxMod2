@@ -1,5 +1,9 @@
 
-//This is not an offical TW script, it just replaces it an simulates it, used for the Latest Relased Turbowarp extension addition.
+//I know, I should have used TW-Unsandboxed-extension-runner.js.
+//But this is better for me, since I know a little more of what this code means.
+
+var createTranslate = require('../tw-l10n');
+var createScratchX = require('../tw-scratchx-compatibility-layer');
 
 class ScratchConstructor {
 	constructor () {
@@ -27,10 +31,13 @@ class ScratchConstructor {
 			unsandboxed:true, //Some extensions require this.
 			register: this.register.bind(this)
 		};
+		this.translate = createTranslate(vm);
+		this.ScratchExtensions = createScratchX(this);
 	}
 	register (ext) {
 		this.vm.extensionManager.GM2RegisterExtension(ext);
 	}
+	//This may be unsecure in some way, but its easier to code this than setting up dialogs.
 	async canEmbed () {
 		return true;
 	}
@@ -40,6 +47,35 @@ class ScratchConstructor {
 	async canNotify () {
 		return true;
 	}
+	async canOpenWindow () {
+		return true;
+	}
+	async canRedirect () {
+		return true;
+	}
+	async canRecordAudio () {
+		return true;
+	}
+	async canRecordVideo () {
+		return true;
+	}
+	async canReadClipboard () {
+		return true;
+	}
+	//Some parts of this code is from TurboWarp themselfs.
+	async fetch (url, options) {
+        const actualURL = url instanceof Request ? url.url : url;
+        return fetch(url, options);
+    }
+	async openWindow (url, features) {
+        // Use noreferrer to prevent new tab from accessing `window.opener`
+        const baseFeatures = 'noreferrer';
+        features = features ? `${baseFeatures},${features}` : baseFeatures;
+        return window.open(url, '_blank', features);
+    }
+	async redirect (url) {
+        location.href = url;
+    }
 }
 
 function runExtensionSync (extensionJavascript) {

@@ -79,6 +79,9 @@ import userdatabig from './userdata/big.png';
 import rokusmall from './roku/small.png';
 import rokubig from './roku/big.png';
 
+import nessmall from './nes_emulator/nes-small.svg';
+import nesbig from './nes_emulator/nes.svg';
+
 import gm2HTML5Small from './html5/small.svg';
 import gm2HTML5Large from './html5/large.svg';
 
@@ -93,7 +96,6 @@ for (var ext of TWExtensions.extensions) {
 			var tmpArray = [].concat(ext.by);
 			extraText += "By: ";
 			for (var user of tmpArray) {
-				console.log(user);
 				extraText += user.name+" ";
 			}
 		}
@@ -102,7 +104,6 @@ for (var ext of TWExtensions.extensions) {
 			var tmpArray = [].concat(ext.original);
 			extraText2 += "Original: ";
 			for (var user of tmpArray) {
-				console.log(user);
 				extraText2 += user.name+" ";
 			}
 			
@@ -147,6 +148,26 @@ export default [
                 defaultMessage="Load custom extensions, without modifing code. Supporting the new TurboWarp extension libary."
                 description=""
                 id="tw.customExtension.description"
+            />
+        ),
+        featured: true
+    },
+	{
+        name: (
+            <FormattedMessage
+                defaultMessage="NES Emulator"
+                description=""
+                id="gm2.nes.name"
+            />
+        ),
+        extensionId: 'nesemulator',
+		insetIconURL: nessmall,
+        iconURL: nesbig,
+        description: (
+            <FormattedMessage
+                defaultMessage="Run Nintendo Entertainment System games, and play them."
+                description=""
+                id="gm2.nes.description"
             />
         ),
         featured: true

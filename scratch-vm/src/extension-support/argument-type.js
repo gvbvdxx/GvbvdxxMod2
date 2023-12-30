@@ -41,7 +41,22 @@ const ArgumentType = {
     /**
      * Inline image on block (as part of the label)
      */
-    IMAGE: 'image'
+    IMAGE: 'image',
+	
+	/**
+     * Costume selector
+     */
+    COSTUME: 'costume',
+	
+	/**
+     * Sound selector
+     */
+    SOUND: 'sound',
+	
+	/**
+     * Sprite selector
+     */
+    SPRITE: 'sprite'
 };
 
 module.exports = ArgumentType;

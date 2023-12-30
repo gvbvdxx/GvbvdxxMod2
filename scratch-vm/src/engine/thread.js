@@ -6,13 +6,7 @@ const log = require('../util/log');
  */
 const _stackFrameFreeList = [];
 
-/**
- * A frame used for each level of the stack. A general purpose
- * place to store a bunch of execution context and parameters
- * @param {boolean} warpMode Whether this level of the stack is warping
- * @constructor
- * @private
- */
+
 class _StackFrame {
     constructor (warpMode) {
         /**

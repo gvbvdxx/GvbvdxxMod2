@@ -10,34 +10,39 @@ const base = {
         host: '0.0.0.0',
         port: process.env.PORT || 8073
     },
-	optimization: {
-		minimize: false,
-		removeAvailableModules: false,
-		removeEmptyChunks: false,
-		splitChunks: false,
-		usedExports: true
-	},
-    devtool: 'cheap-module-source-map',
+    optimization: {
+        minimize: false,
+        removeAvailableModules: false,
+        removeEmptyChunks: false,
+        splitChunks: false,
+        usedExports: false,
+        splitChunks: {
+            chunks: 'all',
+            minChunks: 2,
+            minSize: 50000,
+            maxInitialRequests: 5
+        }
+    },
     output: {
         library: 'VirtualMachine',
         filename: '[name].js'
     },
     module: {
         rules: [{
-            test: /\.js$/,
-            loader: 'babel-loader',
-            include: path.resolve(__dirname, 'src'),
-            query: {
-                presets: [['@babel/preset-env']]
+                test: /\.js$/,
+                loader: 'babel-loader',
+                include: path.resolve(__dirname, 'src'),
+                query: {
+                    presets: [['@babel/preset-env']]
+                }
+            }, {
+                test: /\.mp3$/,
+                loader: 'file-loader',
+                options: {
+                    outputPath: 'media/music/'
+                }
             }
-        },
-        {
-            test: /\.mp3$/,
-            loader: 'file-loader',
-            options: {
-                outputPath: 'media/music/'
-            }
-        }]
+        ]
     },
     plugins: []
 };
@@ -55,12 +60,11 @@ module.exports = [
             path: path.resolve('dist', 'web')
         },
         module: {
-            rules: base.module.rules.concat([
-                {
-                    test: require.resolve('./src/index.js'),
-                    loader: 'expose-loader?VirtualMachine'
-                }
-            ])
+            rules: base.module.rules.concat([{
+                        test: require.resolve('./src/index.js'),
+                        loader: 'expose-loader?VirtualMachine'
+                    }
+                ])
         }
     }),
     // Node-compatible
